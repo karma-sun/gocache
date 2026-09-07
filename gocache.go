@@ -335,29 +335,26 @@ func (cache *Cache) SetAllWithTTL(entries map[string]any, ttl time.Duration) {
 // If there is an entry, the value returned will be the value cached and the boolean will be true
 func (cache *Cache) Get(key string) (any, bool) {
 	cache.mutex.Lock()
+	defer cache.mutex.Unlock()
 	entry, ok := cache.get(key)
 	if !ok {
 		cache.stats.Misses++
-		cache.mutex.Unlock()
 		return nil, false
 	}
 	if entry.Expired() {
 		cache.stats.ExpiredKeys++
 		cache.delete(key)
-		cache.mutex.Unlock()
 		return nil, false
 	}
 	cache.stats.Hits++
 	if cache.evictionPolicy == LeastRecentlyUsed {
 		entry.Accessed()
 		if cache.head == entry {
-			cache.mutex.Unlock()
 			return entry.Value, true
 		}
 		// Because the eviction policy is LRU, we need to move the entry back to HEAD
 		cache.moveExistingEntryToHead(entry)
 	}
-	cache.mutex.Unlock()
 	return entry.Value, true
 }
 
